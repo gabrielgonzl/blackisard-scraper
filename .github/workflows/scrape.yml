@@ -1,0 +1,52 @@
+name: Blackisard Scraper
+
+on:
+  schedule:
+    # Ejecutar cada 6 horas (ajusta según necesites)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:  # Permite ejecución manual
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Ejecutar scraper
+      run: |
+        echo "Ejecutando scraper de Blackisard..."
+        python scraper.py
+      env:
+        DISCOUNT_THRESHOLD: 40
+        REQUEST_TIMEOUT: 30
+    
+    - name: Subir resultados a GitHub (opcional)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: scraping-results
+        path: |
+          ofertas.md
+          state.json
+          scraper.log
+
+    - name: Commit y push cambios (opcional)
+      if: always()
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add ofertas.md state.json || echo "No hay cambios que guardar"
+        git commit -m "Actualizar ofertas Blackisard - $(date)" || echo "No hay cambios que commitear"
+        git push || echo "Push falló (probablemente no hay cambios)"
