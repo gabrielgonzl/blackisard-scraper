@@ -394,87 +394,67 @@ def parse_page(soup, base_url="https://blackisard.com"):
     
     print(f"🔍 DEBUG: Iniciando parseo de página...")
     
-    # NUEVO ENFOQUE: Buscar contenedores que tengan enlaces a productos
-    # Luego extraer precios de contenedores padre
+    # CORRECCIÓN FINAL: Usar la estructura real encontrada
+    # article.product-miniature es el contenedor correcto
+    product_elements = soup.find_all('article', class_='product-miniature')
     
-    # Paso 1: Encontrar todos los enlaces a productos
-    product_links = soup.find_all('a', href=re.compile(r'/escalada-en-roca/.*\.html'))
-    print(f"🔍 DEBUG: {len(product_links)} enlaces a productos encontrados")
+    print(f"🔍 DEBUG: {len(product_elements)} artículos product-miniature encontrados")
     
-    # Paso 2: Agrupar enlaces únicos (evitar duplicados)
-    unique_urls = set()
-    for link in product_links:
-        url = link.get('href', '')
-        unique_urls.add(url)
-    
-    print(f"🔍 DEBUG: {len(unique_urls)} URLs únicas de productos")
-    
-    # Paso 3: Para cada URL única, encontrar el mejor contenedor
-    processed_urls = set()
-    for link in product_links:
-        url = link.get('href', '')
-        
-        # Evitar procesar la misma URL múltiples veces
-        if url in processed_urls:
-            continue
-        processed_urls.add(url)
-        
-        print(f"🔍 DEBUG: Procesando {url[:50]}...")
-        
-        # Buscar el enlace por URL
-        found_link = soup.find('a', href=url)
-        if not found_link:
-            continue
-        
-        # Encontrar el contenedor de producto más apropiado
-        # Buscar en la jerarquía: thumbnail-container > col > ... > link
-        product_container = None
-        
-        # Opción 1: Buscar thumbnail-container padre
-        thumbnail = found_link.find_parent(class_='thumbnail-container')
-        if thumbnail:
-            # Buscar el div.col asociado (padre del thumbnail)
-            col_parent = thumbnail.parent
-            if col_parent and col_parent.name == 'div':
-                product_container = col_parent
-        
-        # Opción 2: Si no hay thumbnail-container, usar el div.col más cercano
-        if not product_container:
-            div_col = found_link.find_parent('div', class_='col')
-            if div_col:
-                product_container = div_col
-        
-        # Opción 3: Usar el contenedor más apropiado disponible
-        if not product_container:
-            # Usar el contenedor que contenga tanto enlace como información de precio
-            parent = found_link.parent
-            for level in range(4):  # Buscar hasta 4 niveles arriba
-                if parent:
-                    # Verificar si este contenedor tiene precios
-                    has_price = parent.find(string=re.compile(r'\d+[,.]?\d*\s*€'))
-                    if has_price:
-                        product_container = parent
-                        break
-                    parent = parent.parent
-                else:
-                    break
-        
-        # Si no encontramos un contenedor específico, usar el div.col si existe
-        if not product_container:
-            div_col = found_link.find_parent('div', class_='col')
-            if div_col:
-                product_container = div_col
-        
-        # Extraer datos del producto
-        if product_container:
-            product_data = parse_product_card(product_container, base_url)
-            if product_data:
-                products.append(product_data)
-                print(f"   ✅ {product_data.get('name', 'Sin nombre')[:30]}...")
-            else:
-                print(f"   ❌ Fallo al extraer datos")
+    # Extraer datos de cada producto
+    for i, element in enumerate(product_elements):
+        product_data = parse_product_card(element, base_url)
+        if product_data:
+            products.append(product_data)
+            print(f"   [{i+1}] ✅ {product_data.get('name', 'Sin nombre')[:50]}...")
+            print(f"        💰 {product_data.get('current_price')}€ ({product_data.get('discount', 0):.1f}% desc.)")
         else:
-            print(f"   ❌ No se encontró contenedor de producto")
+            print(f"   [{i+1}] ❌ Fallo al extraer datos")
+    
+    # Si no se encuentran productos en product-miniature, usar fallback anterior
+    if not product_elements:
+        print("⚠️  No se encontraron productos en article.product-miniature, usando método anterior...")
+        
+        # Paso 1: Encontrar todos los enlaces a productos
+        product_links = soup.find_all('a', href=re.compile(r'/escalada-en-roca/.*\.html'))
+        print(f"🔍 DEBUG: {len(product_links)} enlaces a productos encontrados")
+        
+        # Agrupar enlaces únicos
+        unique_urls = set()
+        for link in product_links:
+            url = link.get('href', '')
+            unique_urls.add(url)
+        
+        print(f"🔍 DEBUG: {len(unique_urls)} URLs únicas de productos")
+        
+        # Para cada URL única, encontrar el mejor contenedor
+        processed_urls = set()
+        for link in product_links:
+            url = link.get('href', '')
+            
+            if url in processed_urls:
+                continue
+            processed_urls.add(url)
+            
+            print(f"🔍 DEBUG: Procesando {url[:50]}...")
+            
+            # Buscar el enlace por URL
+            found_link = soup.find('a', href=url)
+            if not found_link:
+                continue
+            
+            # Buscar article.product-miniature padre
+            product_container = found_link.find_parent('article', class_='product-miniature')
+            
+            # Extraer datos del producto
+            if product_container:
+                product_data = parse_product_card(product_container, base_url)
+                if product_data:
+                    products.append(product_data)
+                    print(f"   ✅ {product_data.get('name', 'Sin nombre')[:30]}...")
+                else:
+                    print(f"   ❌ Fallo al extraer datos")
+            else:
+                print(f"   ❌ No se encontró contenedor de producto")
     
     print(f"🔍 DEBUG: {len(products)} productos extraídos exitosamente")
     
