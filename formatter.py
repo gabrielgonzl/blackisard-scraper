@@ -19,10 +19,10 @@ class MarkdownFormatter:
     
     def format_price(self, price: float) -> str:
         """
-        Formatea un precio para mostrar
+        Formatea un precio como texto
         
         Args:
-            price (float): Precio como número
+            price (float): Precio a formatear
         
         Returns:
             str: Precio formateado
@@ -33,10 +33,10 @@ class MarkdownFormatter:
     
     def format_discount(self, discount: float) -> str:
         """
-        Formatea un descuento para mostrar
+        Formatea un descuento como texto
         
         Args:
-            discount (float): Descuento en porcentaje
+            discount (float): Descuento a formatear
         
         Returns:
             str: Descuento formateado
@@ -44,7 +44,7 @@ class MarkdownFormatter:
         if discount is None:
             return "N/A"
         return f"-{discount:.2f}%"
-    
+
     def generate_offer_block(self, product_name: str, product_url: str, 
                            offer: Dict, date: str) -> str:
         """

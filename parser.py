@@ -118,7 +118,7 @@ def generate_offer_fingerprint(product_data):
         return None
     
     # Crear fingerprint basado en producto + precios
-    price_data = f"{current_price:.2f}_{old_price:.2f}"
+    price_data = f"{current_price:.2f}_{old_price:.2f}" if current_price and old_price else "unknown"
     return hashlib.md5(price_data.encode()).hexdigest()[:16]
 
 def extract_product_id_from_url(url):
@@ -218,6 +218,10 @@ def parse_product_card(product_element, base_url="https://blackisard.com"):
         # CORRECCIÓN FINAL: Usar el método probado del debug
         # Basado en el análisis que mostró que funciona correctamente
         current_price, old_price = extract_prices_correctly(product_element, product_url)
+        
+        # DEBUG FORZADO: Verificar que se ejecuta
+        logger.info(f"🔍 DEBUG: extract_prices_correctly ejecutado para {product_name[:30]}...")
+        logger.info(f"   Precios: actual={current_price}, anterior={old_price}")
         
         # Verificar stock - MÉTODO CORREGIDO
         in_stock = extract_stock_correctly(product_element)
@@ -436,7 +440,11 @@ def parse_page(soup, base_url="https://blackisard.com"):
         if product_data:
             products.append(product_data)
             logger.debug(f"   [{i+1}] ✅ {product_data.get('name', 'Sin nombre')[:50]}...")
-            logger.debug(f"        💰 {product_data.get('current_price')}€ ({product_data.get('discount', 0):.1f}% desc.)")
+            current_price = product_data.get('current_price')
+            discount = product_data.get('discount')
+            formatted_price = f"{current_price:.2f}€" if current_price else "N/A"
+            formatted_discount = f"{discount:.1f}% desc." if discount else "N/A"
+            logger.debug(f"        💰 {formatted_price} ({formatted_discount})")
         else:
             logger.debug(f"   [{i+1}] ❌ Fallo al extraer datos")
     

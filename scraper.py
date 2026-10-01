@@ -384,7 +384,8 @@ class BlackisardScraper:
             duration = end_time - start_time
             
             logger.info("=" * 60)
-            logger.info(f"Scraper completado en {duration.total_seconds():.2f} segundos")
+            duration_seconds = duration.total_seconds() if duration else 0
+            logger.info(f"Scraper completado en {duration_seconds:.2f} segundos")
             logger.info("=" * 60)
             
             return {
@@ -423,7 +424,9 @@ class BlackisardScraper:
                 old_price = offer.get('old_price')
                 discount = offer.get('discount')
                 
-                logger.info(f"[{i:2d}] {name[:40]:40} {current_price:.2f}€  (-{discount:.2f}%)")
+                formatted_price = f"{current_price:.2f}€" if current_price else "N/A"
+                formatted_discount = f"-{discount:.2f}%" if discount else "N/A"
+                logger.info(f"[{i:2d}] {name[:40]:40} {formatted_price}  ({formatted_discount})")
             
             if len(new_offers) > 10:
                 logger.info(f"... y {len(new_offers) - 10} más")
