@@ -212,22 +212,82 @@ def parse_product_card(product_element, base_url="https://blackisard.com"):
         
         product_name = name_element.get_text().strip()
         
-        # Extraer precio actual
+        # CORRECCIÓN: Los precios pueden estar en contenedores padre
+        # Buscar precios en el elemento y en contenedores padre
+        current_price_element = None
+        old_price_element = None
+        current_price_text = ""
+        old_price_text = ""
+        
+        # Primero buscar en el elemento actual
         current_price_element = product_element.find(class_='product-price') or \
                                product_element.find(class_='current-price') or \
                                product_element.find(class_='price')
         
-        current_price_text = current_price_element.get_text().strip() if current_price_element else ""
-        current_price = parse_price(current_price_text)
-        
-        # Extraer precio anterior (tachado)
         old_price_element = product_element.find(class_='regular-price') or \
                            product_element.find(class_='old-price') or \
                            product_element.find(class_='crossed-out') or \
                            product_element.find('del')
         
-        old_price_text = old_price_element.get_text().strip() if old_price_element else ""
-        old_price = parse_price(old_price_text)
+        # Si no se encuentran, buscar en el contenedor padre
+        if not current_price_element:
+            parent = product_element.parent
+            for _ in range(3):  # Buscar hasta 3 niveles arriba
+                if parent:
+                    current_price_element = parent.find(class_='product-price') or \
+                                           parent.find(class_='current-price') or \
+                                           parent.find(class_='price')
+                    if current_price_element:
+                        break
+                    parent = parent.parent
+        
+        if not old_price_element:
+            parent = product_element.parent
+            for _ in range(3):  # Buscar hasta 3 niveles arriba
+                if parent:
+                    old_price_element = parent.find(class_='regular-price') or \
+                                       parent.find(class_='old-price') or \
+                                       parent.find(class_='crossed-out') or \
+                                       parent.find('del')
+                    if old_price_element:
+                        break
+                    parent = parent.parent
+        
+        # Extraer textos de precio
+        if current_price_element:
+            current_price_text = current_price_element.get_text().strip()
+        
+        if old_price_element:
+            old_price_text = old_price_element.get_text().strip()
+        
+        # CORRECCIÓN ADICIONAL: Buscar precios por texto directo
+        # Ya que vimos "51,16 € 77,00 € -33,56%" en el HTML
+        if not current_price_text or not old_price_text:
+            # Buscar contenedor con precios
+            search_element = product_element
+            for _ in range(5):  # Buscar en hasta 5 niveles
+                if search_element:
+                    # Buscar cualquier elemento con precios
+                    price_texts = search_element.find_all(string=re.compile(r'\d+[,.]?\d*\s*€'))
+                    if price_texts:
+                        # El texto completo suele estar en el mismo elemento o padre
+                        parent = search_element.parent
+                        if parent:
+                            full_text = parent.get_text()
+                            # Extraer ambos precios del texto completo
+                            price_matches = re.findall(r'(\d{1,3}[,.]?\d{0,2})\s*€', full_text)
+                            if len(price_matches) >= 2:
+                                current_price_text = f"{price_matches[0]} €"
+                                old_price_text = f"{price_matches[1]} €"
+                                break
+                    
+                    search_element = search_element.parent
+                else:
+                    break
+        
+        # Parsear precios
+        current_price = parse_price(current_price_text) if current_price_text else None
+        old_price = parse_price(old_price_text) if old_price_text else None
         
         # Verificar stock
         in_stock = parse_stock_status(product_element)
@@ -244,7 +304,7 @@ def parse_product_card(product_element, base_url="https://blackisard.com"):
             'product_id': product_id,
             'name': product_name,
             'url': product_url,
-            'canonical_url': product_url,  # Por ahora igual a la URL
+            'canonical_url': product_url,
             'current_price': current_price,
             'old_price': old_price,
             'in_stock': in_stock,
@@ -332,21 +392,43 @@ def parse_page(soup, base_url="https://blackisard.com"):
     """
     products = []
     
-    # Buscar elementos de productos
-    product_elements = soup.find_all(class_=re.compile(r'js-product-miniature|product.*card', re.I))
+    # CORRECCIÓN: Buscar elementos div.col que contienen los productos reales
+    product_elements = soup.find_all('div', class_='col')
     
-    if not product_elements:
-        # Fallback: buscar enlaces de productos
-        product_links = soup.find_all('a', href=re.compile(r'/escalada-en-roca/.+\.html'))
-        product_elements = [link.find_parent(class_=re.compile(r'product|item')) 
-                          for link in product_links 
-                          if link.find_parent(class_=re.compile(r'product|item'))]
-    
-    # Extraer datos de cada producto
+    # Filtrar solo los elementos que realmente contienen productos
+    valid_product_elements = []
     for element in product_elements:
+        # Verificar que tiene enlace a producto y nombre
+        has_link = element.find('a', href=re.compile(r'/escalada-en-roca/.*\.html'))
+        has_name = element.find(class_='product-title') or element.find('h3')
+        has_price = element.find(string=re.compile(r'\d+[,.]?\d*\s*€'))
+        
+        if has_link and has_name and has_price:
+            valid_product_elements.append(element)
+    
+    print(f"🔍 DEBUG: Encontrados {len(valid_product_elements)} productos válidos en div.col")
+    
+    # Extraer datos de cada producto válido
+    for i, element in enumerate(valid_product_elements):
         product_data = parse_product_card(element, base_url)
         if product_data:
             products.append(product_data)
+            print(f"   [{i+1}] {product_data.get('name', 'Sin nombre')[:30]}... - {product_data.get('current_price')}€")
+        else:
+            print(f"   [{i+1}] FALLO al extraer datos")
+    
+    # Si no se encuentran productos en div.col, usar fallback
+    if not valid_product_elements:
+        print("⚠️  No se encontraron productos en div.col, usando método fallback...")
+        
+        # Fallback: buscar enlaces de productos
+        product_links = soup.find_all('a', href=re.compile(r'/escalada-en-roca/.*\.html'))
+        product_elements = [link.find_parent('div') for link in product_links]
+        
+        for element in product_elements:
+            product_data = parse_product_card(element, base_url)
+            if product_data:
+                products.append(product_data)
     
     # También intentar extraer de JSON-LD
     json_ld_products = extract_from_json_ld(soup)
