@@ -3,8 +3,11 @@ Parser para extraer datos de productos de Blackisard
 """
 import re
 import hashlib
+import logging
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 def parse_price(price_text):
     """
@@ -392,31 +395,31 @@ def parse_page(soup, base_url="https://blackisard.com"):
     """
     products = []
     
-    print(f"🔍 DEBUG: Iniciando parseo de página...")
+    logger.debug("🔍 DEBUG: Iniciando parseo de página...")
     
     # CORRECCIÓN FINAL: Usar la estructura real encontrada
     # article.product-miniature es el contenedor correcto
     product_elements = soup.find_all('article', class_='product-miniature')
     
-    print(f"🔍 DEBUG: {len(product_elements)} artículos product-miniature encontrados")
+    logger.debug(f"🔍 DEBUG: {len(product_elements)} artículos product-miniature encontrados")
     
     # Extraer datos de cada producto
     for i, element in enumerate(product_elements):
         product_data = parse_product_card(element, base_url)
         if product_data:
             products.append(product_data)
-            print(f"   [{i+1}] ✅ {product_data.get('name', 'Sin nombre')[:50]}...")
-            print(f"        💰 {product_data.get('current_price')}€ ({product_data.get('discount', 0):.1f}% desc.)")
+            logger.debug(f"   [{i+1}] ✅ {product_data.get('name', 'Sin nombre')[:50]}...")
+            logger.debug(f"        💰 {product_data.get('current_price')}€ ({product_data.get('discount', 0):.1f}% desc.)")
         else:
-            print(f"   [{i+1}] ❌ Fallo al extraer datos")
+            logger.debug(f"   [{i+1}] ❌ Fallo al extraer datos")
     
     # Si no se encuentran productos en product-miniature, usar fallback anterior
     if not product_elements:
-        print("⚠️  No se encontraron productos en article.product-miniature, usando método anterior...")
+        logger.warning("⚠️  No se encontraron productos en article.product-miniature, usando método anterior...")
         
         # Paso 1: Encontrar todos los enlaces a productos
         product_links = soup.find_all('a', href=re.compile(r'/escalada-en-roca/.*\.html'))
-        print(f"🔍 DEBUG: {len(product_links)} enlaces a productos encontrados")
+        logger.debug(f"🔍 DEBUG: {len(product_links)} enlaces a productos encontrados")
         
         # Agrupar enlaces únicos
         unique_urls = set()
@@ -424,7 +427,7 @@ def parse_page(soup, base_url="https://blackisard.com"):
             url = link.get('href', '')
             unique_urls.add(url)
         
-        print(f"🔍 DEBUG: {len(unique_urls)} URLs únicas de productos")
+        logger.debug(f"🔍 DEBUG: {len(unique_urls)} URLs únicas de productos")
         
         # Para cada URL única, encontrar el mejor contenedor
         processed_urls = set()
@@ -435,7 +438,7 @@ def parse_page(soup, base_url="https://blackisard.com"):
                 continue
             processed_urls.add(url)
             
-            print(f"🔍 DEBUG: Procesando {url[:50]}...")
+            logger.debug(f"🔍 DEBUG: Procesando {url[:50]}...")
             
             # Buscar el enlace por URL
             found_link = soup.find('a', href=url)
@@ -450,17 +453,17 @@ def parse_page(soup, base_url="https://blackisard.com"):
                 product_data = parse_product_card(product_container, base_url)
                 if product_data:
                     products.append(product_data)
-                    print(f"   ✅ {product_data.get('name', 'Sin nombre')[:30]}...")
+                    logger.debug(f"   ✅ {product_data.get('name', 'Sin nombre')[:30]}...")
                 else:
-                    print(f"   ❌ Fallo al extraer datos")
+                    logger.debug(f"   ❌ Fallo al extraer datos")
             else:
-                print(f"   ❌ No se encontró contenedor de producto")
+                logger.debug(f"   ❌ No se encontró contenedor de producto")
     
-    print(f"🔍 DEBUG: {len(products)} productos extraídos exitosamente")
+    logger.debug(f"🔍 DEBUG: {len(products)} productos extraídos exitosamente")
     
     # También intentar extraer de JSON-LD
     json_ld_products = extract_from_json_ld(soup)
-    print(f"🔍 DEBUG: {len(json_ld_products)} productos de JSON-LD")
+    logger.debug(f"🔍 DEBUG: {len(json_ld_products)} productos de JSON-LD")
     
     for product_data in json_ld_products:
         # Completar con IDs y fingerprints
@@ -474,9 +477,9 @@ def parse_page(soup, base_url="https://blackisard.com"):
     next_link = soup.find('link', rel='next')
     if next_link:
         next_page_url = urljoin(base_url, next_link.get('href', ''))
-        print(f"🔍 DEBUG: Siguiente página encontrada: {next_page_url}")
+        logger.debug(f"🔍 DEBUG: Siguiente página encontrada: {next_page_url}")
     else:
-        print(f"🔍 DEBUG: No hay siguiente página")
+        logger.debug(f"🔍 DEBUG: No hay siguiente página")
     
     return products, next_page_url
 
