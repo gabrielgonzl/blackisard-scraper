@@ -43,20 +43,22 @@ def run_scraper():
         from scraper import BlackisardScraper
         
         # Aplicar configuración del servidor
-        print("Iniciando scraper con configuración del servidor...")
+        print("🚀 Iniciando scraper con configuración del servidor...")
         
-        # Actualizar configuración global
-        import config
-        config.DISCOUNT_THRESHOLD = SERVER_CONFIG['discount_threshold']
-        config.REQUEST_TIMEOUT = SERVER_CONFIG['request_timeout']
-        config.OUTPUT_FILE = SERVER_CONFIG['output_file']
-        config.STATE_FILE = SERVER_CONFIG['state_file']
-        config.LOG_LEVEL = SERVER_CONFIG['log_level']
-        config.DEBUG_MODE = SERVER_CONFIG['debug_mode']
-        
-        # Crear y ejecutar scraper
+        # Crear y ejecutar scraper (el método run() ahora acepta custom_config)
         scraper = BlackisardScraper()
-        result = scraper.run(SERVER_CONFIG)
+        
+        # Configuración limpia para el scraper
+        config_dict = {
+            'discount_threshold': SERVER_CONFIG['discount_threshold'],
+            'request_timeout': SERVER_CONFIG['request_timeout'],
+            'output_file': SERVER_CONFIG['output_file'],
+            'state_file': SERVER_CONFIG['state_file'],
+            'debug_mode': SERVER_CONFIG['debug_mode'],
+            'log_level': SERVER_CONFIG['log_level']
+        }
+        
+        result = scraper.run(config_dict)
         
         # Log resultado
         print(f"""

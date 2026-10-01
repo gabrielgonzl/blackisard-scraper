@@ -5,6 +5,7 @@ Detecta ofertas de escalada en roca con descuento >= 40%
 import time
 import logging
 import argparse
+import os
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 from urllib.parse import urljoin
@@ -275,13 +276,39 @@ class BlackisardScraper:
         
         return new_offers
     
-    def run(self) -> Dict:
+    def run(self, custom_config: Dict = None) -> Dict:
         """
         Ejecuta el scraper completo
+        
+        Args:
+            custom_config (dict, optional): Configuración personalizada
         
         Returns:
             dict: Resultado de la ejecución
         """
+        # Aplicar configuración personalizada si se proporciona
+        if custom_config:
+            global DISCOUNT_THRESHOLD, REQUEST_TIMEOUT, OUTPUT_FILE, STATE_FILE, LOG_LEVEL, DEBUG_MODE
+            
+            DISCOUNT_THRESHOLD = custom_config.get('discount_threshold', DISCOUNT_THRESHOLD)
+            REQUEST_TIMEOUT = custom_config.get('request_timeout', REQUEST_TIMEOUT)
+            OUTPUT_FILE = custom_config.get('output_file', OUTPUT_FILE)
+            STATE_FILE = custom_config.get('state_file', STATE_FILE)
+            LOG_LEVEL = custom_config.get('log_level', LOG_LEVEL)
+            DEBUG_MODE = custom_config.get('debug_mode', DEBUG_MODE)
+            
+            # Reconfigurar logging si es necesario
+            if DEBUG_MODE or LOG_LEVEL == 'DEBUG':
+                logging.getLogger().setLevel(logging.DEBUG)
+        
+        logger.info("=" * 60)
+        logger.info("BLACKISARD SCRAPER")
+        logger.info("=" * 60)
+        logger.info(f"Categoría: Escalada en roca")
+        logger.info(f"Descuento mínimo: {DISCOUNT_THRESHOLD}%")
+        logger.info(f"Estado: {STATE_FILE}")
+        logger.info(f"Salida: {OUTPUT_FILE}")
+        logger.info("=" * 60)
         logger.info("=" * 60)
         logger.info("BLACKISARD SCRAPER")
         logger.info("=" * 60)
@@ -378,89 +405,96 @@ class BlackisardScraper:
 
 def main():
     """Función principal"""
-    from config import (
-        DISCOUNT_THRESHOLD as BASE_DISCOUNT_THRESHOLD, 
-        REQUEST_TIMEOUT as BASE_REQUEST_TIMEOUT,
-        OUTPUT_FILE as BASE_OUTPUT_FILE,
-        STATE_FILE as BASE_STATE_FILE
-    )
+    # Obtener configuración desde variables de entorno (para GitHub Actions)
+    env_discount = os.getenv('DISCOUNT_THRESHOLD')
+    env_timeout = os.getenv('REQUEST_TIMEOUT')
+    env_output = os.getenv('OUTPUT_FILE')
+    env_state = os.getenv('STATE_FILE')
     
-    parser = argparse.ArgumentParser(
-        description="Scraper de ofertas de Blackisard",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+    # Configuración desde variables de entorno o defaults
+    config_from_env = {
+        'discount_threshold': float(env_discount) if env_discount else None,
+        'request_timeout': int(env_timeout) if env_timeout else None,
+        'output_file': env_output or None,
+        'state_file': env_state or None,
+        'debug_mode': os.getenv('DEBUG_MODE', 'false').lower() == 'true',
+        'log_level': os.getenv('LOG_LEVEL', 'INFO')
+    }
+    
+    # Solo usar argumentos de línea de comandos si no estamos en entorno CI
+    if not any(config_from_env.values()):
+        # Modo interactivo local
+        from config import (
+            DISCOUNT_THRESHOLD as BASE_DISCOUNT_THRESHOLD, 
+            REQUEST_TIMEOUT as BASE_REQUEST_TIMEOUT,
+            OUTPUT_FILE as BASE_OUTPUT_FILE,
+            STATE_FILE as BASE_STATE_FILE
+        )
+        
+        parser = argparse.ArgumentParser(
+            description="Scraper de ofertas de Blackisard",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
 Ejemplos:
   python scraper.py              # Ejecutar scraper con configuración por defecto
   python scraper.py --debug      # Ejecutar con modo debug
   python scraper.py --threshold 35  # Cambiar umbral de descuento a 35%
-        """
-    )
-    
-    parser.add_argument(
-        '--debug',
-        action='store_true',
-        help='Activar modo debug con logs detallados'
-    )
-    
-    parser.add_argument(
-        '--threshold',
-        type=float,
-        default=BASE_DISCOUNT_THRESHOLD,
-        help=f'Umbral de descuento mínimo (default: {BASE_DISCOUNT_THRESHOLD}%)'
-    )
-    
-    parser.add_argument(
-        '--timeout',
-        type=int,
-        default=BASE_REQUEST_TIMEOUT,
-        help=f'Timeout de peticiones (default: {BASE_REQUEST_TIMEOUT}s)'
-    )
-    
-    parser.add_argument(
-        '--output',
-        default=BASE_OUTPUT_FILE,
-        help=f'Archivo de salida (default: {BASE_OUTPUT_FILE})'
-    )
-    
-    parser.add_argument(
-        '--state',
-        default=BASE_STATE_FILE,
-        help=f'Archivo de estado (default: {BASE_STATE_FILE})'
-    )
-    
-    args = parser.parse_args()
-    
-    # Configuración personalizada para el scraper
-    custom_config = {
-        'discount_threshold': args.threshold,
-        'request_timeout': args.timeout,
-        'output_file': args.output,
-        'state_file': args.state,
-        'debug_mode': args.debug,
-        'log_level': 'DEBUG' if args.debug else 'INFO'
-    }
-    
-    # Actualizar variables globales para el módulo config
-    global DISCOUNT_THRESHOLD, REQUEST_TIMEOUT, OUTPUT_FILE, STATE_FILE, LOG_LEVEL, DEBUG_MODE
-    DISCOUNT_THRESHOLD = args.threshold
-    REQUEST_TIMEOUT = args.timeout
-    OUTPUT_FILE = args.output
-    STATE_FILE = args.state
-    LOG_LEVEL = 'DEBUG' if args.debug else 'INFO'
-    DEBUG_MODE = args.debug
-    
-    # Actualizar configuración del módulo config
-    import config
-    config.DISCOUNT_THRESHOLD = args.threshold
-    config.REQUEST_TIMEOUT = args.timeout
-    config.OUTPUT_FILE = args.output
-    config.STATE_FILE = args.state
-    config.LOG_LEVEL = 'DEBUG' if args.debug else 'INFO'
-    config.DEBUG_MODE = args.debug
+            """
+        )
+        
+        parser.add_argument(
+            '--debug',
+            action='store_true',
+            help='Activar modo debug con logs detallados'
+        )
+        
+        parser.add_argument(
+            '--threshold',
+            type=float,
+            default=BASE_DISCOUNT_THRESHOLD,
+            help=f'Umbral de descuento mínimo (default: {BASE_DISCOUNT_THRESHOLD}%)'
+        )
+        
+        parser.add_argument(
+            '--timeout',
+            type=int,
+            default=BASE_REQUEST_TIMEOUT,
+            help=f'Timeout de peticiones (default: {BASE_REQUEST_TIMEOUT}s)'
+        )
+        
+        parser.add_argument(
+            '--output',
+            default=BASE_OUTPUT_FILE,
+            help=f'Archivo de salida (default: {BASE_OUTPUT_FILE})'
+        )
+        
+        parser.add_argument(
+            '--state',
+            default=BASE_STATE_FILE,
+            help=f'Archivo de estado (default: {BASE_STATE_FILE})'
+        )
+        
+        args = parser.parse_args()
+        
+        # Configuración desde argumentos
+        custom_config = {
+            'discount_threshold': args.threshold,
+            'request_timeout': args.timeout,
+            'output_file': args.output,
+            'state_file': args.state,
+            'debug_mode': args.debug,
+            'log_level': 'DEBUG' if args.debug else 'INFO'
+        }
+    else:
+        # Modo CI/automático - usar variables de entorno
+        custom_config = {}
+        for key, value in config_from_env.items():
+            if value is not None:
+                custom_config[key] = value
     
     # Crear y ejecutar scraper
     scraper = BlackisardScraper()
-    result = scraper.run(custom_config)
+    result = scraper.run(custom_config if custom_config else None)
     
     # Exit code
     if result['success']:

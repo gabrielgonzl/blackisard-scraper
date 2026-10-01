@@ -26,27 +26,61 @@ jobs:
     
     - name: Ejecutar scraper
       run: |
-        echo "Ejecutando scraper de Blackisard..."
+        echo "🚀 Ejecutando scraper de Blackisard..."
+        echo "📊 Configuración:"
+        echo "   - Descuento mínimo: ${{ env.DISCOUNT_THRESHOLD }}%"
+        echo "   - Timeout: ${{ env.REQUEST_TIMEOUT }}s"
         python scraper.py
       env:
         DISCOUNT_THRESHOLD: 40
         REQUEST_TIMEOUT: 30
+        LOG_LEVEL: INFO
+        OUTPUT_FILE: ofertas.md
+        STATE_FILE: state.json
+        PLATFORM: github-actions
     
-    - name: Subir resultados a GitHub (opcional)
+    - name: Verificar archivos generados
+      run: |
+        echo "📁 Archivos generados:"
+        ls -la *.md *.json *.log 2>/dev/null || echo "No se encontraron archivos de salida"
+        echo ""
+        echo "📊 Resumen de ofertas:"
+        if [ -f "ofertas.md" ]; then
+          echo "✅ ofertas.md generado"
+          wc -l ofertas.md
+        fi
+        if [ -f "state.json" ]; then
+          echo "✅ state.json generado"
+          cat state.json | python -m json.tool | head -10
+        fi
+    
+    - name: Subir resultados como artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: scraping-results
+        name: scraping-results-${{ github.run_number }}
         path: |
           ofertas.md
           state.json
           scraper.log
+          scraper_result.json
+        retention-days: 30
 
-    - name: Commit y push cambios (opcional)
-      if: always()
+    - name: Commit cambios en branch principal
+      if: github.ref == 'refs/heads/main'
       run: |
         git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add ofertas.md state.json || echo "No hay cambios que guardar"
-        git commit -m "Actualizar ofertas Blackisard - $(date)" || echo "No hay cambios que commitear"
-        git push || echo "Push falló (probablemente no hay cambios)"
+        git config --local user.name "GitHub Actions Bot"
+        
+        # Verificar si hay cambios que commitear
+        git add ofertas.md state.json scraper_result.json 2>/dev/null || echo "No hay archivos nuevos que añadir"
+        
+        if git diff --staged --quiet; then
+          echo "ℹ️  No hay cambios que commitear"
+        else
+          echo "✅ Commitando cambios..."
+          git commit -m "🔄 Auto-update: Ofertas Blackisard - $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "🔒 Intentando push..."
+          # El push fallará si no hay permisos de escritura en el repo
+          git push || echo "⚠️  Push falló (normal si no tienes permisos de escritura)"
+        fi
