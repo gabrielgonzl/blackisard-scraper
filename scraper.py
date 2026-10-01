@@ -43,7 +43,12 @@ class BlackisardScraper:
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
+            'Upgrade-Insecure-Requests': '1',
+            'Referer': 'https://www.google.com/',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'cross-site',
+            'Cache-Control': 'max-age=0'
         })
         
         self.state_manager = StateManager(STATE_FILE)
@@ -75,13 +80,24 @@ class BlackisardScraper:
         max_retries = 3
         retry_delay = 5
         
+        # Configurar proxy si está disponible
+        proxies = None
+        proxy_url = os.getenv('HTTP_PROXY') or os.getenv('HTTPS_PROXY')
+        if proxy_url:
+            proxies = {
+                'http': proxy_url,
+                'https': proxy_url
+            }
+            logger.info(f"Usando proxy: {proxy_url}")
+        
         for attempt in range(max_retries):
             try:
                 logger.info(f"Obteniendo página: {url}")
                 response = self.session.get(
                     url,
                     timeout=REQUEST_TIMEOUT,
-                    allow_redirects=True
+                    allow_redirects=True,
+                    proxies=proxies
                 )
                 
                 response.raise_for_status()
@@ -96,6 +112,20 @@ class BlackisardScraper:
                 if soup.find('title') and '404' in soup.find('title').get_text():
                     logger.warning(f"Página 404: {url}")
                     return None
+                
+                # Verificar si nos bloquearon (mensaje común de Cloudflare, etc.)
+                page_text = soup.get_text().lower()
+                blocked_messages = [
+                    'forbidden',
+                    'access denied',
+                    'cloudflare',
+                    'too many requests',
+                    'rate limit'
+                ]
+                
+                for message in blocked_messages:
+                    if message in page_text:
+                        logger.warning(f"Posible bloqueo detectado en {url}: {message}")
                 
                 return soup
                 

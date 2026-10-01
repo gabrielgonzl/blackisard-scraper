@@ -11,7 +11,16 @@ CATEGORY_URL = BASE_URL + CATEGORY_PATH
 # Configuración del scraper
 DISCOUNT_THRESHOLD = 40.0  # Descuento mínimo del 40%
 REQUEST_TIMEOUT = 30  # segundos
-USER_AGENT = "Blackisard-Scraper/1.0 (Educational Purposes)"
+
+# User-Agent más realista para evitar bloqueos
+import os
+PLATFORM = os.getenv('PLATFORM', 'local')
+if PLATFORM == 'github-actions':
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+elif PLATFORM == 'railway':
+    USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+else:
+    USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
 # Configuración de archivos
 STATE_FILE = "state.json"
