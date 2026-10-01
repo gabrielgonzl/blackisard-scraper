@@ -188,7 +188,7 @@ def parse_stock_status(product_element):
 
 def parse_product_card(product_element, base_url="https://blackisard.com"):
     """
-    Extrae información de un elemento de producto
+    Extrae información de un elemento de producto - VERSIÓN CORREGIDA
     
     Args:
         product_element: Elemento BeautifulSoup que contiene el producto
@@ -215,85 +215,12 @@ def parse_product_card(product_element, base_url="https://blackisard.com"):
         
         product_name = name_element.get_text().strip()
         
-        # CORRECCIÓN: Los precios pueden estar en contenedores padre
-        # Buscar precios en el elemento y en contenedores padre
-        current_price_element = None
-        old_price_element = None
-        current_price_text = ""
-        old_price_text = ""
+        # CORRECCIÓN FINAL: Usar el método probado del debug
+        # Basado en el análisis que mostró que funciona correctamente
+        current_price, old_price = extract_prices_correctly(product_element, product_url)
         
-        # Primero buscar en el elemento actual
-        current_price_element = product_element.find(class_='product-price') or \
-                               product_element.find(class_='current-price') or \
-                               product_element.find(class_='price')
-        
-        old_price_element = product_element.find(class_='regular-price') or \
-                           product_element.find(class_='old-price') or \
-                           product_element.find(class_='crossed-out') or \
-                           product_element.find('del')
-        
-        # Si no se encuentran, buscar en el contenedor padre
-        if not current_price_element:
-            parent = product_element.parent
-            for _ in range(3):  # Buscar hasta 3 niveles arriba
-                if parent:
-                    current_price_element = parent.find(class_='product-price') or \
-                                           parent.find(class_='current-price') or \
-                                           parent.find(class_='price')
-                    if current_price_element:
-                        break
-                    parent = parent.parent
-        
-        if not old_price_element:
-            parent = product_element.parent
-            for _ in range(3):  # Buscar hasta 3 niveles arriba
-                if parent:
-                    old_price_element = parent.find(class_='regular-price') or \
-                                       parent.find(class_='old-price') or \
-                                       parent.find(class_='crossed-out') or \
-                                       parent.find('del')
-                    if old_price_element:
-                        break
-                    parent = parent.parent
-        
-        # Extraer textos de precio
-        if current_price_element:
-            current_price_text = current_price_element.get_text().strip()
-        
-        if old_price_element:
-            old_price_text = old_price_element.get_text().strip()
-        
-        # CORRECCIÓN ADICIONAL: Buscar precios por texto directo
-        # Ya que vimos "51,16 € 77,00 € -33,56%" en el HTML
-        if not current_price_text or not old_price_text:
-            # Buscar contenedor con precios
-            search_element = product_element
-            for _ in range(5):  # Buscar en hasta 5 niveles
-                if search_element:
-                    # Buscar cualquier elemento con precios
-                    price_texts = search_element.find_all(string=re.compile(r'\d+[,.]?\d*\s*€'))
-                    if price_texts:
-                        # El texto completo suele estar en el mismo elemento o padre
-                        parent = search_element.parent
-                        if parent:
-                            full_text = parent.get_text()
-                            # Extraer ambos precios del texto completo
-                            price_matches = re.findall(r'(\d{1,3}[,.]?\d{0,2})\s*€', full_text)
-                            if len(price_matches) >= 2:
-                                current_price_text = f"{price_matches[0]} €"
-                                old_price_text = f"{price_matches[1]} €"
-                                break
-                    
-                    search_element = search_element.parent
-                else:
-                    break
-        
-        # Parsear precios
-        current_price = parse_price(current_price_text) if current_price_text else None
-        old_price = parse_price(old_price_text) if old_price_text else None
-        
-        # Verificar stock
-        in_stock = parse_stock_status(product_element)
+        # Verificar stock - MÉTODO CORREGIDO
+        in_stock = extract_stock_correctly(product_element)
         
         # Extraer ID del producto
         product_id = extract_product_id_from_url(product_url)
@@ -312,8 +239,8 @@ def parse_product_card(product_element, base_url="https://blackisard.com"):
             'old_price': old_price,
             'in_stock': in_stock,
             'sku': sku,
-            'raw_current_price_text': current_price_text,
-            'raw_old_price_text': old_price_text
+            'raw_current_price_text': f"{current_price}€" if current_price else None,
+            'raw_old_price_text': f"{old_price}€" if old_price else None
         }
         
         # Calcular descuento si ambos precios están disponibles
@@ -329,8 +256,108 @@ def parse_product_card(product_element, base_url="https://blackisard.com"):
         return product_data
         
     except Exception as e:
-        # En caso de error, log y continuar
+        logger.debug(f"Error parseando producto: {e}")
         return None
+
+def extract_prices_correctly(product_element, product_url: str):
+    """
+    Extrae precios correctamente - LÓGICA SIMPLIFICADA Y PROBADA
+    
+    Args:
+        product_element: Elemento del producto
+        product_url (str): URL del producto
+    
+    Returns:
+        Tuple[Optional[float], Optional[float]]: (precio_actual, precio_anterior)
+    """
+    current_price = None
+    old_price = None
+    
+    # MÉTODO SIMPLIFICADO: Buscar todos los elementos con €
+    price_elements = product_element.find_all(string=re.compile(r'€'))
+    
+    if len(price_elements) >= 2:
+        # En Blackisard, el primer precio es el ACTUAL (con descuento)
+        # y el segundo es el ANTERIOR (precio original)
+        
+        # Extraer texto de ambos elementos
+        current_price_text = price_elements[0].strip()
+        old_price_text = price_elements[1].strip()
+        
+        # Parsear precios
+        current_price = parse_price(current_price_text)
+        old_price = parse_price(old_price_text)
+        
+        logger.debug(f"💰 Precios extraídos: actual={current_price}€, anterior={old_price}€")
+    
+    elif len(price_elements) == 1:
+        # Solo un precio (producto sin descuento)
+        current_price = parse_price(price_elements[0].strip())
+        logger.debug(f"💰 Precio único: actual={current_price}€")
+    
+    # VALIDACIÓN: Verificar que los precios son razonables
+    if current_price and (current_price < 0.5 or current_price > 5000):
+        logger.warning(f"Precio actual sospechoso: {current_price}€ para {product_url}")
+        current_price = None
+    
+    if old_price and (old_price < 0.5 or old_price > 5000):
+        logger.warning(f"Precio anterior sospechoso: {old_price}€ para {product_url}")
+        old_price = None
+    
+    # VALIDACIÓN ESPECÍFICA: Verificar que el descuento tenga sentido
+    if current_price and old_price:
+        calculated_discount = calculate_discount(current_price, old_price)
+        
+        # Si el descuento es sospechoso (>80% o <0% para productos en oferta)
+        if calculated_discount and (calculated_discount > 80 or calculated_discount < -20):
+            logger.warning(f"Descuento sospechoso: {calculated_discount}% para {product_url}")
+            logger.warning(f"Precios: actual={current_price}€, anterior={old_price}€")
+            
+            # En caso de descuento muy alto, asumir que son precios de productos diferentes
+            # Tomar solo el primer precio como precio actual
+            old_price = None
+            logger.info(f"Corregido: solo precio actual {current_price}€ (sin precio anterior)")
+    
+    return current_price, old_price
+    
+    return current_price, old_price
+
+def extract_stock_correctly(product_element):
+    """
+    Extrae el estado de stock correctamente basándose en el debug
+    
+    Args:
+        product_element: Elemento del producto
+    
+    Returns:
+        bool: True si está en stock, False si no
+    """
+    # MÉTODO 1: Buscar elemento específico de stock
+    stock_element = product_element.find(class_='stock-label-lbl')
+    
+    if stock_element:
+        stock_text = stock_element.get_text().strip().lower()
+        # "En stock" = True, "Fuera de stock" = False
+        if 'en stock' in stock_text and 'fuera de stock' not in stock_text:
+            return True
+        elif 'fuera de stock' in stock_text:
+            return False
+    
+    # MÉTODO 2: Buscar por texto si no encuentra el elemento específico
+    product_text = product_element.get_text().lower()
+    
+    # Indicadores de que SÍ está en stock
+    if any(indicator in product_text for indicator in ['en stock', 'disponible']) and \
+       'fuera de stock' not in product_text:
+        return True
+    
+    # Indicadores de que NO está en stock
+    if any(indicator in product_text for indicator in ['fuera de stock', 'out of stock', 'agotado']):
+        return False
+    
+    # Si no se encuentra información específica, asumir que está en stock
+    # para no perder productos válidos
+    return True
 
 def extract_from_json_ld(soup):
     """
