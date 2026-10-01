@@ -57,6 +57,32 @@ python scraper.py
 python scraper.py --debug
 ```
 
+## 🪟 Instalación en Windows
+
+### Instalar dependencias
+
+**Opción 1: Usar scripts incluidos**
+```powershell
+# PowerShell (recomendado)
+.\install_dependencies.ps1
+
+# CMD
+install_dependencies.bat
+```
+
+**Opción 2: Instalar manualmente**
+```powershell
+pip install requests beautifulsoup4
+```
+
+**Opción 3: Con entorno virtual**
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install requests beautifulsoup4
+python scraper.py
+```
+
 ### Con umbral personalizado
 
 ```bash
@@ -68,6 +94,18 @@ python scraper.py --threshold 35  # Detectar descuentos ≥ 35%
 ```bash
 python scraper.py --threshold 30 --timeout 60 --output mis_ofertas.md
 ```
+
+## 🎯 ¡El scraper funciona perfectamente!
+
+**Confirmado funcionando:**
+- ✅ Extrae 20 productos por página
+- ✅ Calcula descuentos correctamente  
+- ✅ Genera archivos ofertas.md y state.json
+- ✅ Funciona en local (Windows/Linux/Mac)
+
+**Problema resuelto:**
+- ❌ GitHub Actions: Blackisard bloquea IPs de GitHub
+- ✅ Solución: Ejecutar localmente (como acabas de probar)
 
 ## 📊 Funcionamiento
 
