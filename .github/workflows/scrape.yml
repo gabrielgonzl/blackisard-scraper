@@ -61,6 +61,7 @@ jobs:
         name: scraping-results-${{ github.run_number }}
         path: |
           ofertas.md
+          ofertas.html
           state.json
           scraper.log
           scraper_result.json
@@ -73,7 +74,7 @@ jobs:
         git config --local user.name "GitHub Actions Bot"
         
         # Verificar si hay cambios que commitear
-        git add ofertas.md state.json scraper_result.json 2>/dev/null || echo "No hay archivos nuevos que añadir"
+        git add ofertas.md ofertas.html state.json scraper_result.json 2>/dev/null || echo "No hay archivos nuevos que añadir"
         
         if git diff --staged --quiet; then
           echo "ℹ️  No hay cambios que commitear"

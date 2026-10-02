@@ -17,6 +17,7 @@ from config import *
 from parser import parse_page, parse_price, calculate_discount
 from state import StateManager
 from formatter import MarkdownFormatter
+from html_report import generate as generate_html
 
 # Configurar logging
 logging.basicConfig(
@@ -375,6 +376,10 @@ class BlackisardScraper:
             
             if not self.formatter.create_report(new_offers, scan_info):
                 logger.error("Error al generar reporte")
+            
+            logger.info("Generando ofertas.html...")
+            if not generate_html(self.state_manager.state, HTML_OUTPUT_FILE):
+                logger.error("Error al generar ofertas.html")
             
             # Mostrar resumen
             self.print_summary(new_offers)

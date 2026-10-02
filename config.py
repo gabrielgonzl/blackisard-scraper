@@ -25,6 +25,7 @@ else:
 # Configuración de archivos
 STATE_FILE = "state.json"
 OUTPUT_FILE = "ofertas.md"
+HTML_OUTPUT_FILE = "ofertas.html"
 
 # Configuración de paginación
 PRODUCTS_PER_PAGE = 24  # Estimado basado en la web
