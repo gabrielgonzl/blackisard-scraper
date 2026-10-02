@@ -5,6 +5,7 @@ import html
 import os
 
 from formatter import MarkdownFormatter
+from parser import extract_category
 
 
 def _category_label(category):
@@ -75,7 +76,8 @@ def generate(state, output_file='ofertas.html') -> bool:
     # Agrupar por categoría
     groups = {}
     for product in products:
-        key = product.get('category') or 'Sin categoría'
+        # ponytail: fallback desde la URL para states viejos sin 'category'
+        key = product.get('category') or extract_category(product.get('url') or '') or 'Sin categoría'
         groups.setdefault(key, []).append(product)
 
     nav_items = []
@@ -144,7 +146,20 @@ details li {{ margin-bottom: .25rem; }}
 
 
 if __name__ == "__main__":
-    # Test básico del generador HTML
+    import json
+    import sys
+    from config import STATE_FILE, HTML_OUTPUT_FILE
+
+    if '--test' not in sys.argv:
+        # Uso normal: generar ofertas.html desde state.json
+        if not os.path.exists(STATE_FILE):
+            print(f"No existe {STATE_FILE}. Ejecuta primero el scraper.")
+            sys.exit(1)
+        with open(STATE_FILE, 'r', encoding='utf-8') as f:
+            state = json.load(f)
+        sys.exit(0 if generate(state, HTML_OUTPUT_FILE) else 1)
+
+    # Self-check
     print("Test del generador HTML")
     print("=" * 50)
 
