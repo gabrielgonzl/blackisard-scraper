@@ -141,6 +141,8 @@ class StateManager:
                 'url': product_data.get('canonical_url', product_data.get('url', '')),
                 'product_id': product_data.get('product_id'),
                 'sku': product_data.get('sku'),
+                'image_url': product_data.get('image_url'),
+                'category': product_data.get('category'),
                 'offers': []
             }
         
@@ -180,6 +182,11 @@ class StateManager:
             
             if product_data.get('sku') and product_data['sku'] != self.state['products'][product_id].get('sku'):
                 self.state['products'][product_id]['sku'] = product_data['sku']
+            
+            if product_data.get('image_url') and not self.state['products'][product_id].get('image_url'):
+                self.state['products'][product_id]['image_url'] = product_data['image_url']
+            if product_data.get('category') and not self.state['products'][product_id].get('category'):
+                self.state['products'][product_id]['category'] = product_data['category']
             
             return True
         

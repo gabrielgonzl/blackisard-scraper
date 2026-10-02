@@ -244,7 +244,9 @@ def parse_product_card(product_element, base_url="https://blackisard.com"):
             'in_stock': in_stock,
             'sku': sku,
             'raw_current_price_text': f"{current_price}€" if current_price else None,
-            'raw_old_price_text': f"{old_price}€" if old_price else None
+            'raw_old_price_text': f"{old_price}€" if old_price else None,
+            'image_url': extract_image_url(product_element, base_url),
+            'category': extract_category(product_url)
         }
         
         # Calcular descuento si ambos precios están disponibles
@@ -362,6 +364,25 @@ def extract_stock_correctly(product_element):
     # Si no se encuentra información específica, asumir que está en stock
     # para no perder productos válidos
     return True
+
+def extract_image_url(product_element, base_url="https://blackisard.com"):
+    """Extrae la URL de la imagen principal del producto"""
+    img = product_element.find('img')
+    if not img:
+        return None
+    url = img.get('data-src') or img.get('src')
+    if not url and (img.get('srcset') or img.get('data-srcset')):
+        url = (img.get('srcset') or img.get('data-srcset')).split(',')[0].strip().split()[0]
+    if not url or url.startswith('data:'):
+        return None
+    return urljoin(base_url, url)
+
+def extract_category(product_url):
+    """Extrae la categoría (segmento de path anterior al archivo del producto)"""
+    parts = [p for p in urlparse(product_url).path.split('/') if p]
+    if len(parts) >= 2:
+        return parts[-2]
+    return parts[0] if parts else None
 
 def extract_from_json_ld(soup):
     """
